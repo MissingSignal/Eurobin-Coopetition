@@ -21,9 +21,21 @@ def go_to(query: str):
     return True
 
 @tool
-def grasp(query: str):
+def pick(query: str):
     """call to grasp an object"""
     print(f"grasp {query}")
+    return True
+
+@tool
+def place(query: str):
+    """call to place an object"""
+    print(f"placing object in {query}")
+    return True
+
+@tool
+def give():
+    """call to give object to human"""
+    print("giving object")
     return True
 
 @tool
@@ -32,7 +44,7 @@ def understand_scene(query: str):
     print(f"understandig scene {query}")
     return True
 
-tools = [go_to, grasp, understand_scene]
+tools = [go_to, pick, place, give, understand_scene]
 
 action_node = ToolNode(tools)
 
