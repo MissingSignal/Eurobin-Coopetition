@@ -12,7 +12,7 @@ Whisper module running locally.
 Module that enables autonomous behaviours, the robot is free to perform basic actions.
 
 <p align="center">
-    <img src=".media/graph.png" alt="Description of Image">
+    <img src=".media/graph.png" alt="Description of Image" width="70%">
 </p>
 
 
