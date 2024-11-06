@@ -1,4 +1,4 @@
-# Eurobin-Coopetition: TEAM EGO
+# Eurobin-Coopetition
 This repo shares the code used on Alter Ego during Eurobin's 1st coopetition held in Nancy, France. \
 Check the rules [HERE](https://www.eurobin-project.eu/images/2024/euROBIN_Nancy_Coopetition_RuleBook.pdf).
 
