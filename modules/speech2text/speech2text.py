@@ -103,7 +103,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Speech to Text ROS Node")
     parser.add_argument('--language', type=str, default='italian', help='Language for speech recognition (default: italian)')
-    parser.add_argument('--model_name', type=str, default='small', help='Model name for speech recognition (default: google) Note: google uses the google online speech recognition API')
+    parser.add_argument('--model_name', type=str, default='tiny.en', help='Model name for speech recognition (default: google) Note: google uses the google online speech recognition API')
     parser.add_argument('--mic_index', type=int, default=0, help='Microphone index (default: 0)')
     parser.add_argument('--threshold', type=int, default=500, help='Energy threshold for speech recognition (default: 2000)')
     parser.add_argument('--dynamic_threshold', type=bool, default=False, help='Dynamic energy threshold for speech recognition (default: False)')
