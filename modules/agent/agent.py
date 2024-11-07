@@ -2,6 +2,7 @@
 import os
 import rospy
 from std_msgs.msg import String
+from ego_msgs.srv import PickPlace, PickPlaceRequest  # Assumendo che tu abbia un servizio chiamato PickPlace
 import numpy as np
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -18,16 +19,17 @@ import click
 dotenv.load_dotenv()
 
 # Get environment variables
-LANGSMITH_TRACING="true"
-LANGCHAIN_API_KEY=os.getenv("LANGCHAIN_API_KEY")
-AZURE_OPENAI_API_KEY=os.getenv("AZURE_OPENAI_API_KEY")
-AZURE_OPENAI_ENDPOINT= os.getenv("AZURE_OPENAI_ENDPOINT")
+LANGSMITH_TRACING = "true"
+LANGCHAIN_API_KEY = os.getenv("LANGCHAIN_API_KEY")
+AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
+AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
 
-# hard coded list of available objects
+# Hard coded list of available objects
 objects = [
-    "cleanser", "sponge", "bowl", "plate", "mug", "fork", "knife", "spoon", "chocolate_jello", "strawberry_jello", "coffee_grounds", "mustard", "spam", "sugar", "tomato_soup", "tuna",
-    "bowl", "plate", "mug", "fork", "knife", "spoon", "cleanser", "sponge", "apple", "banana", "lemon", "orange", "peach", "pear", "plum", "strawberry", "cheezit", "cornflakes", "pringles",
-    "baseball", "dice", "rubiks_cube", "soccer_ball", "tennis_ball"
+    "cleanser", "sponge", "bowl", "plate", "mug", "fork", "knife", "spoon", "chocolate_jello", "strawberry_jello",
+    "coffee_grounds", "mustard", "spam", "sugar", "tomato_soup", "tuna", "bowl", "plate", "mug", "fork", "knife",
+    "spoon", "cleanser", "sponge", "apple", "banana", "lemon", "orange", "peach", "pear", "plum", "strawberry",
+    "cheezit", "cornflakes", "pringles", "baseball", "dice", "rubiks_cube", "soccer_ball", "tennis_ball"
 ]
 
 # Define the tools for the agent to use
@@ -60,6 +62,24 @@ def execute_plan(object: str, origin_location: str, origin_sublocation: str, tar
     #insert here go_to(location+sublocation)
 
     #insert here place / give 
+
+    rospy.wait_for_service('/pick_place_service')
+    try:
+        pick_place_service = rospy.ServiceProxy('/pick_place_service', PickPlace)
+        request = PickPlaceRequest(
+            object=object,
+            origin_location=origin_location,
+            origin_sublocation=origin_sublocation,
+            target_location=target_location,
+            target_sublocation=target_sublocation
+        )
+        response = pick_place_service(request)
+        if response.success:
+            rospy.loginfo("Pick and place action was successful.")
+        else:
+            rospy.logwarn("Pick and place action failed.")
+    except rospy.ServiceException as e:
+        rospy.logerr(f"Service call failed: {e}")
 
     return True
 
@@ -122,9 +142,11 @@ class ChatWithRobot:
     def __init__(self):
         # Initialize the ROS node
         rospy.init_node('chat_with_robot', anonymous=False)
+        # Get robot name from environment variable
+        self.robot_name = os.getenv('ROBOT_NAME', 'robot_alterego3')
         self.robot = robot
         # Subscriber for recognized speech
-        rospy.Subscriber('/robot_alterego3/recognized_speech', String, self.callback)
+        rospy.Subscriber(f"/{self.robot_name}/recognized_speech", String, self.callback)
 
     def callback(self, msg):
         user_input = msg.data

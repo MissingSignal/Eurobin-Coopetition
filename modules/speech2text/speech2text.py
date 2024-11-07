@@ -1,3 +1,5 @@
+#!/home/alterego-vision/miniconda3/envs/eurobin_env/bin/python
+
 """
 This module is used to recognize speech from the microphone and publish it to a topic.
 Written by: Luca Garello (luca.garello@iit.it)
@@ -7,10 +9,24 @@ import time
 import signal
 import sys
 import argparse
+import os
+import sys
 import rospy
 import speech_recognition as sr
 from std_msgs.msg import String
 
+
+# Filtra gli argomenti non riconosciuti
+filtered_args = [arg for arg in sys.argv if not arg.startswith('__')]
+
+parser = argparse.ArgumentParser(description="Speech to Text ROS Node")
+parser.add_argument('--language', type=str, default='italian', help='Language for speech recognition (default: italian)')
+parser.add_argument('--model_name', type=str, default='tiny.en', help='Model name for speech recognition (default: google) Note: google uses the google online speech recognition API')
+parser.add_argument('--mic_index', type=int, default=0, help='Microphone index (default: 0)')
+parser.add_argument('--threshold', type=int, default=500, help='Energy threshold for speech recognition (default: 2000)')
+parser.add_argument('--dynamic_threshold', type=bool, default=False, help='Dynamic energy threshold for speech recognition (default: False)')
+parser.add_argument('--robot_name', type=str, default=os.getenv('ROBOT_NAME', 'robot_alterego3'), help='Robot name for topic naming (default: robot_alterego3)')
+args = parser.parse_args(filtered_args[1:])
 
 class SpeechToText:
     """ Class to recognize speech from the microphone and publish it to a topic """
@@ -37,7 +53,6 @@ class SpeechToText:
         self.recognizer.dynamic_energy_threshold = self.dynamic_threshold
         print("Module initialized")
 
-
     def signal_handler(self):
         """ Signal handler to catch interruption and shutdown the node """
         print('Interruption received, shutting down...')
@@ -46,7 +61,6 @@ class SpeechToText:
 
     def set_language_callback(self, msg):
         """ Callback function to set the language for speech recognition """
-
         desired_lan = msg.data
         assert desired_lan in ["english", "italian"], "Invalid language"
 
@@ -58,7 +72,6 @@ class SpeechToText:
                 self.language = "it-IT"
             else:
                 print("Invalid language, using default language (it-IT)")
-                # Default language
                 self.language = "it-IT"
         else:
             if desired_lan == "english":
@@ -67,19 +80,16 @@ class SpeechToText:
                 self.language = "it"
             else:
                 print("Invalid language, using default language (it)")
-                # Default language
                 self.language = "it"
 
     def recognize_speech(self):
         """ Recognize speech from the microphone and publish it to the specified topic """
         while not rospy.is_shutdown():
-            # Use the default microphone as the audio source
             with sr.Microphone(device_index=self.mic_index) as source:
                 print("Listening ...")
                 audio = self.recognizer.listen(source)
                 print("Recognizing ...")
 
-                #start timer
                 time_start = time.time()
                 if self.model_name == "google":
                     try:
@@ -91,24 +101,12 @@ class SpeechToText:
                 else:
                     text = self.recognizer.recognize_whisper(audio, model=self.model_name, language=self.language)
 
-                #end timer
                 time_end = time.time()
                 if text is not None:
                     print(f"Recognized: {text}")
                     print(f"\033[3mInference time: {time_end - time_start} seconds\033[0m")
                     self.pub.publish(text)
-                
 
 if __name__ == "__main__":
-
-    parser = argparse.ArgumentParser(description="Speech to Text ROS Node")
-    parser.add_argument('--language', type=str, default='italian', help='Language for speech recognition (default: italian)')
-    parser.add_argument('--model_name', type=str, default='tiny.en', help='Model name for speech recognition (default: google) Note: google uses the google online speech recognition API')
-    parser.add_argument('--mic_index', type=int, default=0, help='Microphone index (default: 0)')
-    parser.add_argument('--threshold', type=int, default=500, help='Energy threshold for speech recognition (default: 2000)')
-    parser.add_argument('--dynamic_threshold', type=bool, default=False, help='Dynamic energy threshold for speech recognition (default: False)')
-    parser.add_argument('--robot_name', type=str, default='robot_alterego3', help='Robot name for topic naming (default: robot_alterego3)')
-    args = parser.parse_args()
-
     stt = SpeechToText(language=args.language, model_name=args.model_name, mic_index=args.mic_index, threshold=args.threshold, dynamic_threshold=args.dynamic_threshold, robot_name=args.robot_name)
     stt.recognize_speech()

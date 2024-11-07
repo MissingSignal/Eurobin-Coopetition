@@ -1,0 +1,4 @@
+<launch>
+    <!-- Launch the speech2text node -->
+    <node name="speech2text" pkg="eurobin_coopetion" type="speech2text.py" output="screen"/>
+</launch>
