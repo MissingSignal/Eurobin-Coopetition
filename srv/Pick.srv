@@ -1,8 +1,0 @@
-# PickPlace.srv
-string object
-string origin_location
-string origin_sublocation
-string target_location
-string target_sublocation
----
-bool success

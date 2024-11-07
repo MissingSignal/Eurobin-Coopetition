@@ -1,5 +1,3 @@
-#!/home/alterego-vision/miniconda3/envs/eurobin_env/bin/python
-
 """
 This module is used to recognize speech from the microphone and publish it to a topic.
 Written by: Luca Garello (luca.garello@iit.it)
@@ -14,7 +12,6 @@ import sys
 import rospy
 import speech_recognition as sr
 from std_msgs.msg import String
-
 
 # Filtra gli argomenti non riconosciuti
 filtered_args = [arg for arg in sys.argv if not arg.startswith('__')]

@@ -1,20 +1,19 @@
-#!/usr/bin/env python3
+#!/home/alterego-vision/miniconda3/envs/eurobin_env/bin/python
 import os
 import rospy
-from std_msgs.msg import String
-from ego_msgs.srv import PickPlace, PickPlaceRequest  # Assumendo che tu abbia un servizio chiamato PickPlace
-import numpy as np
-
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_openai import AzureChatOpenAI
-from langgraph.checkpoint.memory import MemorySaver
-from langgraph.graph import END, START, StateGraph, MessagesState
-from langgraph.prebuilt import ToolNode
-from langchain_core.tools import tool
-from typing import Annotated, Literal, TypedDict
-
-import dotenv
 import click
+import dotenv
+import numpy as np
+from std_msgs.msg import String
+from langchain_core.tools import tool
+from langgraph.prebuilt import ToolNode
+from langchain_openai import AzureChatOpenAI
+from geometry_msgs.msg import Point, Quaternion
+from typing import Annotated, Literal, TypedDict
+from langgraph.checkpoint.memory import MemorySaver
+from eurobin_coopetition.srv import *
+from langchain_core.messages import HumanMessage, SystemMessage
+from langgraph.graph import END, START, StateGraph, MessagesState
 
 dotenv.load_dotenv()
 
@@ -55,31 +54,46 @@ def execute_plan(object: str, origin_location: str, origin_sublocation: str, tar
     click.secho(f" {target_sublocation} ", fg='red', bold=True)
     print("\n")
 
-    #insert here go_to(str: location+sublocation)
 
-    #insert here pick(object)
+    #goto location
+    #wait true
 
-    #insert here go_to(location+sublocation)
-
-    #insert here place / give 
-
-    rospy.wait_for_service('/pick_place_service')
+    #mando la richiesta ad happypose di trovare l'oggetto nella scena e dirmi dove si trova
+    rospy.loginfo("Requesting happypose to find the object")
+    rospy.wait_for_service('/happypose_service')
     try:
-        pick_place_service = rospy.ServiceProxy('/pick_place_service', PickPlace)
-        request = PickPlaceRequest(
-            object=object,
-            origin_location=origin_location,
-            origin_sublocation=origin_sublocation,
-            target_location=target_location,
-            target_sublocation=target_sublocation
-        )
-        response = pick_place_service(request)
+        happypose_service = rospy.ServiceProxy('/happypose_service', HappyPoseService)
+        response = happypose_service(object=object)
         if response.success:
-            rospy.loginfo("Pick and place action was successful.")
-        else:
-            rospy.logwarn("Pick and place action failed.")
+            rospy.loginfo("Happypose action was successful.")
+            position = response.position
+            orientation = response.orientation
+            rospy.loginfo(f"Object {object} found at position ({position.x}, {position.y}, {position.z}) and orientation ({orientation.x}, {orientation.y}, {orientation.z}, {orientation.w})")        else:
+            rospy.logwarn("Happypose action failed.")
+            return False
     except rospy.ServiceException as e:
         rospy.logerr(f"Service call failed: {e}")
+        return False
+    
+    rospy.loginfo("Moving to pick the object")
+
+    #mando la richiesta a pick di prendere l'oggetto  
+    rospy.wait_for_service('/pick_service')
+    try:
+        pick_service = rospy.ServiceProxy('/pick_service', PickService)
+        response = pick_service(
+            object=object,
+            position=position,
+            orientation=orientation
+        )
+        if response.success:
+            rospy.loginfo("Pick action was successful.")
+        else:
+            rospy.logwarn("Pick action failed.")
+            return False
+    except rospy.ServiceException as e:
+        rospy.logerr(f"Service call failed: {e}")
+        return False
 
     return True
 
