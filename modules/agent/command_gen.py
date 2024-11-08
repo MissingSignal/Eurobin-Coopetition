@@ -2,7 +2,10 @@ import argparse
 import random
 import re
 import warnings
+import rospy
+from std_msgs.msg import String
 from utils.utils import *
+import os
 
 class CommandGenerator:
 
@@ -231,16 +234,23 @@ def main(test=False, league="wp2", cmds_number=0):
                                  object_categories_plural, object_categories_singular)
     
     if test:
-        for _ in range(cmds_number):  
-            command = generator.generate_command_start(cmd_category="")
-            command = command[0].upper() + command[1:]
-            print(command)
+        rospy.init_node('command_generator')
+        robot_name = os.getenv('ROBOT_NAME', 'robot_alterego3')
+
+        pub = rospy.Publisher(f"/{robot_name}/recognized_speech", String, queue_size=10)
+        rate = rospy.Rate(1)  # 1 Hz
+        command = generator.generate_command_start(cmd_category="")
+        command = command[0].upper() + command[1:]
+        rospy.loginfo(f"Generated command: {command}")
+        while not rospy.is_shutdown():
+            pub.publish(command)
+            rate.sleep()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Command Generator")
-    parser.add_argument('--league', type=str, default=0, 
-                        help="Number of commands to generate for testing. If 0, GUI is used.")
+    parser.add_argument('--league', type=str, default="wp2", 
+                        help="League for which to generate commands.")
     parser.add_argument('--test', type=int, default=1, 
                         help="Number of commands to generate for testing. If 0, GUI is used.")
     

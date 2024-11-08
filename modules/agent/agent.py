@@ -68,7 +68,8 @@ def execute_plan(object: str, origin_location: str, origin_sublocation: str, tar
             rospy.loginfo("Happypose action was successful.")
             position = response.position
             orientation = response.orientation
-            rospy.loginfo(f"Object {object} found at position ({position.x}, {position.y}, {position.z}) and orientation ({orientation.x}, {orientation.y}, {orientation.z}, {orientation.w})")        else:
+            rospy.loginfo(f"Object {object} found at position ({position.x}, {position.y}, {position.z}) and orientation ({orientation.x}, {orientation.y}, {orientation.z}, {orientation.w})")        
+        else:
             rospy.logwarn("Happypose action failed.")
             return False
     except rospy.ServiceException as e:
@@ -94,6 +95,8 @@ def execute_plan(object: str, origin_location: str, origin_sublocation: str, tar
     except rospy.ServiceException as e:
         rospy.logerr(f"Service call failed: {e}")
         return False
+    
+    rospy.loginfo("Moving to place the object")
 
     return True
 
