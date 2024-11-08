@@ -11,7 +11,7 @@ from langchain_openai import AzureChatOpenAI
 from geometry_msgs.msg import Point, Quaternion
 from typing import Annotated, Literal, TypedDict
 from langgraph.checkpoint.memory import MemorySaver
-from eurobin_coopetition.srv import *
+from eurobin_coopetition.srv import HappyPoseService, PickService
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph, MessagesState
 
@@ -76,7 +76,7 @@ def execute_plan(object: str, origin_location: str, origin_sublocation: str, tar
         rospy.logerr(f"Service call failed: {e}")
         return False
     
-    rospy.loginfo("Moving to pick the object")
+    rospy.loginfo("Pick the object")
 
     #mando la richiesta a pick di prendere l'oggetto  
     rospy.wait_for_service('/pick_service')
@@ -88,15 +88,16 @@ def execute_plan(object: str, origin_location: str, origin_sublocation: str, tar
             orientation=orientation
         )
         if response.success:
-            rospy.loginfo("Pick action was successful.")
+            rospy.loginfo("Picked action was successful.")
         else:
-            rospy.logwarn("Pick action failed.")
+            rospy.logwarn("Picked action failed.")
             return False
     except rospy.ServiceException as e:
         rospy.logerr(f"Service call failed: {e}")
         return False
     
     rospy.loginfo("Moving to place the object")
+
 
     return True
 

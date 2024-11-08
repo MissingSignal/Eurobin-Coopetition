@@ -242,9 +242,14 @@ def main(test=False, league="wp2", cmds_number=0):
         command = generator.generate_command_start(cmd_category="")
         command = command[0].upper() + command[1:]
         rospy.loginfo(f"Generated command: {command}")
+        pub_once = True
+        pub.publish(command)
+
         while not rospy.is_shutdown():
-            pub.publish(command)
+            if pub_once:
+                pub.publish(command)
             rate.sleep()
+            
 
 
 if __name__ == "__main__":
@@ -257,3 +262,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     main(test=args.test > 0, league=args.league, cmds_number=args.test)
+    rospy.spin()
