@@ -79,10 +79,10 @@ def execute_plan(object: str, origin_location: str, origin_sublocation: str, tar
 
     
     #--------------------------------------------------------------------------------------------------------GO TO ORIGIN LOCATION
-    rospy.loginfo("Requesting navigation to go in location")
-    response = call_service('/navigation_service', NavService, location=origin_location, sub_location=origin_sublocation)
-    if not response:
-        return False
+    # rospy.loginfo("Requesting navigation to go in location")
+    # response = call_service('/navigation_service', NavService, location=origin_location, sub_location=origin_sublocation)
+    # if not response:
+    #     return False
 
     rospy.loginfo("Moving to take the object")
     #--------------------------------------------------------------------------------------------------------DETECT OBJECT
@@ -94,7 +94,7 @@ def execute_plan(object: str, origin_location: str, origin_sublocation: str, tar
     position = response.position
     orientation = response.orientation
     rospy.loginfo(f"Object {object} found at position ({position.x}, {position.y}, {position.z}) and orientation ({orientation.x}, {orientation.y}, {orientation.z}, {orientation.w})")
-
+    rospy.sleep(4)
     rospy.loginfo("Pick the object")
     #--------------------------------------------------------------------------------------------------------PICK THE OBJECT
     rospy.loginfo("Requesting pick service to pick the object")
@@ -177,8 +177,6 @@ class ChatWithRobot:
         self.robot = robot
         # Subscriber for recognized speech
         rospy.Subscriber(f"/{self.robot_name}/recognized_speech", String, self.callback)
-        # Publisher for enable_auto_mode
-        self.enable_auto_mode_pub = rospy.Publisher(f"/{self.robot_name}/enable_auto_mode", Bool, queue_size=10)
 
     def callback(self, msg):
         user_input = msg.data
