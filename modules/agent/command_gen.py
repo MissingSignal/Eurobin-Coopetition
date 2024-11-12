@@ -1,3 +1,5 @@
+#!/home/alterego-vision/miniconda3/envs/eurobin_env/bin/python
+
 import argparse
 import random
 import re

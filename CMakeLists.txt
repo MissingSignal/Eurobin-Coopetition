@@ -12,6 +12,8 @@ add_service_files(
   FILES
   PickService.srv
   HappyPoseService.srv
+  NavService.srv
+  EnableAutoModeService.srv
 )
 
 generate_messages(

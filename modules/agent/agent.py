@@ -11,9 +11,10 @@ from langchain_openai import AzureChatOpenAI
 from geometry_msgs.msg import Point, Quaternion
 from typing import Annotated, Literal, TypedDict
 from langgraph.checkpoint.memory import MemorySaver
-from eurobin_coopetition.srv import HappyPoseService, PickService
+from eurobin_coopetition.srv import HappyPoseService, PickService, NavService, EnableAutoModeService
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph, MessagesState
+from std_msgs.msg import Bool
 
 dotenv.load_dotenv()
 
@@ -31,6 +32,21 @@ objects = [
     "cheezit", "cornflakes", "pringles", "baseball", "dice", "rubiks_cube", "soccer_ball", "tennis_ball"
 ]
 
+def call_service(service_name, service_type, **kwargs):
+    rospy.wait_for_service(service_name)
+    try:
+        service = rospy.ServiceProxy(service_name, service_type)
+        response = service(**kwargs)
+        if response.success:
+            rospy.loginfo(f"{service_name} action was successful.")
+            return response
+        else:
+            rospy.logwarn(f"{service_name} action failed.")
+            return None
+    except rospy.ServiceException as e:
+        rospy.logerr(f"Service call to {service_name} failed: {e}")
+        return None
+    
 # Define the tools for the agent to use
 @tool
 def execute_plan(object: str, origin_location: str, origin_sublocation: str, target_location: str, target_sublocation: str):
@@ -54,50 +70,46 @@ def execute_plan(object: str, origin_location: str, origin_sublocation: str, tar
     click.secho(f" {target_sublocation} ", fg='red', bold=True)
     print("\n")
 
+    
+    #--------------------------------------------------------------------------------------------------------ENABLE AUTO MODE
+    rospy.loginfo("Enabling the auto mode")
+    response = call_service('/enable_auto_mode_service', EnableAutoModeService, enable=True)
+    if not response:
+        return False
 
-    #goto location
-    #wait true
+    
+    #--------------------------------------------------------------------------------------------------------GO TO ORIGIN LOCATION
+    rospy.loginfo("Requesting navigation to go in location")
+    response = call_service('/navigation_service', NavService, location=origin_location, sub_location=origin_sublocation)
+    if not response:
+        return False
 
-    #mando la richiesta ad happypose di trovare l'oggetto nella scena e dirmi dove si trova
+    rospy.loginfo("Moving to take the object")
+    #--------------------------------------------------------------------------------------------------------DETECT OBJECT
     rospy.loginfo("Requesting happypose to find the object")
-    rospy.wait_for_service('/happypose_service')
-    try:
-        happypose_service = rospy.ServiceProxy('/happypose_service', HappyPoseService)
-        response = happypose_service(object=object)
-        if response.success:
-            rospy.loginfo("Happypose action was successful.")
-            position = response.position
-            orientation = response.orientation
-            rospy.loginfo(f"Object {object} found at position ({position.x}, {position.y}, {position.z}) and orientation ({orientation.x}, {orientation.y}, {orientation.z}, {orientation.w})")        
-        else:
-            rospy.logwarn("Happypose action failed.")
-            return False
-    except rospy.ServiceException as e:
-        rospy.logerr(f"Service call failed: {e}")
+    response = call_service('/happypose_service', HappyPoseService, object=object)
+    if not response:
         return False
-    
+
+    position = response.position
+    orientation = response.orientation
+    rospy.loginfo(f"Object {object} found at position ({position.x}, {position.y}, {position.z}) and orientation ({orientation.x}, {orientation.y}, {orientation.z}, {orientation.w})")
+
     rospy.loginfo("Pick the object")
-
-    #mando la richiesta a pick di prendere l'oggetto  
-    rospy.wait_for_service('/pick_service')
-    try:
-        pick_service = rospy.ServiceProxy('/pick_service', PickService)
-        response = pick_service(
-            object=object,
-            position=position,
-            orientation=orientation
-        )
-        if response.success:
-            rospy.loginfo("Picked action was successful.")
-        else:
-            rospy.logwarn("Picked action failed.")
-            return False
-    except rospy.ServiceException as e:
-        rospy.logerr(f"Service call failed: {e}")
+    #--------------------------------------------------------------------------------------------------------PICK THE OBJECT
+    rospy.loginfo("Requesting pick service to pick the object")
+    response = call_service('/pick_service', PickService, object=object, position=position, orientation=orientation)
+    if not response:
         return False
-    
-    rospy.loginfo("Moving to place the object")
 
+    rospy.loginfo("Moving to place the object")
+    #--------------------------------------------------------------------------------------------------------GO TO THE TARGET LOCATION
+    rospy.loginfo("Requesting navigation to go to target location")
+    response = call_service('/navigation_service', NavService, location=target_location, sub_location=target_sublocation)
+    if not response:
+        return False
+
+    rospy.loginfo("Moving to place the object")
 
     return True
 
@@ -165,6 +177,8 @@ class ChatWithRobot:
         self.robot = robot
         # Subscriber for recognized speech
         rospy.Subscriber(f"/{self.robot_name}/recognized_speech", String, self.callback)
+        # Publisher for enable_auto_mode
+        self.enable_auto_mode_pub = rospy.Publisher(f"/{self.robot_name}/enable_auto_mode", Bool, queue_size=10)
 
     def callback(self, msg):
         user_input = msg.data
