@@ -1,4 +1,3 @@
-#!/home/alterego-vision/miniconda3/envs/eurobin_env/bin/python
 import os
 import rospy
 import click
@@ -11,7 +10,7 @@ from langchain_openai import AzureChatOpenAI
 from geometry_msgs.msg import Point, Quaternion
 from typing import Annotated, Literal, TypedDict
 from langgraph.checkpoint.memory import MemorySaver
-from eurobin_coopetition.srv import HappyPoseService, PickService, NavService, EnableAutoModeService
+from eurobin_coopetition.srv import EnableAutoModeService, WhereRUService, HappyPoseService, PickService, NavService 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph, MessagesState
 from std_msgs.msg import Bool
@@ -78,11 +77,47 @@ def execute_plan(object: str, origin_location: str, origin_sublocation: str, tar
         return False
 
     
+    #--------------------------------------------------------------------------------------------------------GET THE STARTING POINT
+    rospy.loginfo("Requesting the starting point")
+    response = call_service('/where_are_you_service', WhereRUService, request=True)
+    if not response:
+        return False
+    instruction_point = response.instruction_point
+    rospy.loginfo("Starting from the location: " + instruction_point)
+
     #--------------------------------------------------------------------------------------------------------GO TO ORIGIN LOCATION
-    # rospy.loginfo("Requesting navigation to go in location")
-    # response = call_service('/navigation_service', NavService, location=origin_location, sub_location=origin_sublocation)
-    # if not response:
-    #     return False
+    if instruction_point == origin_location:
+        rospy.loginfo("Requesting navigation to go to origin location")
+        response = call_service('/navigation_service', NavService, location=origin_location, sub_location=origin_sublocation)
+        if not response:
+            return False
+    else:
+        rospy.loginfo("Already in the origin location")
+        if instruction_point == "INRIA" or instruction_point == "DLR":
+            if origin_location == "KIT" :
+                rospy.loginfo("C'è la porta nord")
+                rospy.loginfo("Requesting navigation to go to the door")
+                response = call_service('/navigation_service', NavService, location="Door", sub_location="INRIA-KIT")
+                if not response:
+                    return False
+        elif instruction_point == "KIT":
+            if origin_location == "INRIA" or origin_location == "DLR":
+                rospy.loginfo("C'è la porta sud")
+                rospy.loginfo("Requesting navigation to go to the door")
+                response = call_service('/navigation_service', NavService, location="Door", sub_location="KIT-INRIA")
+                if not response:
+                    return False
+        elif instruction_point == "DLR":
+            if origin_location == "INRIA":
+                response = call_service('/navigation_service', NavService, location=origin_location, sub_location=origin_sublocation)
+                if not response:
+                    return False
+        elif instruction_point == "INRIA":
+            if origin_location == "DLR":
+                response = call_service('/navigation_service', NavService, location=origin_location, sub_location=origin_sublocation)
+                if not response:
+                    return False
+
 
     rospy.loginfo("Moving to take the object")
     #--------------------------------------------------------------------------------------------------------DETECT OBJECT

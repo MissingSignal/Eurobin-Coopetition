@@ -14,6 +14,7 @@ add_service_files(
   HappyPoseService.srv
   NavService.srv
   EnableAutoModeService.srv
+  WhereRUService.srv
 )
 
 generate_messages(
