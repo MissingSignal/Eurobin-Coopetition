@@ -69,6 +69,7 @@ def execute_plan(object: str, origin_location: str, origin_sublocation: str, tar
     click.secho(f" {target_sublocation} ", fg='red', bold=True)
     print("\n")
 
+    #TODO: pubblica qui lo speak del piano da eseguire
     
     #--------------------------------------------------------------------------------------------------------ENABLE AUTO MODE
     rospy.loginfo("Enabling the auto mode")
@@ -87,33 +88,34 @@ def execute_plan(object: str, origin_location: str, origin_sublocation: str, tar
 
     #--------------------------------------------------------------------------------------------------------GO TO ORIGIN LOCATION
     if instruction_point == origin_location:
-        rospy.loginfo("Requesting navigation to go to origin location")
+        rospy.loginfo("Already in the origin location")
+        rospy.loginfo("Requesting navigation to go to origin sub location")
         response = call_service('/navigation_service', NavService, location=origin_location, sub_location=origin_sublocation)
         if not response:
             return False
     else:
-        rospy.loginfo("Already in the origin location")
         if instruction_point == "INRIA" or instruction_point == "DLR":
             if origin_location == "KIT" :
-                rospy.loginfo("C'è la porta nord")
-                rospy.loginfo("Requesting navigation to go to the door")
+                rospy.loginfo("Requesting navigation to go to the door INRIA-KIT")
                 response = call_service('/navigation_service', NavService, location="Door", sub_location="INRIA-KIT")
                 if not response:
                     return False
         elif instruction_point == "KIT":
             if origin_location == "INRIA" or origin_location == "DLR":
                 rospy.loginfo("C'è la porta sud")
-                rospy.loginfo("Requesting navigation to go to the door")
+                rospy.loginfo("Requesting navigation to go to the door KIT-INRIA")
                 response = call_service('/navigation_service', NavService, location="Door", sub_location="KIT-INRIA")
                 if not response:
                     return False
         elif instruction_point == "DLR":
             if origin_location == "INRIA":
+                rospy.loginfo("Requesting navigation to go to origin sub location")
                 response = call_service('/navigation_service', NavService, location=origin_location, sub_location=origin_sublocation)
                 if not response:
                     return False
         elif instruction_point == "INRIA":
             if origin_location == "DLR":
+                rospy.loginfo("Requesting navigation to go to origin sub location")
                 response = call_service('/navigation_service', NavService, location=origin_location, sub_location=origin_sublocation)
                 if not response:
                     return False
