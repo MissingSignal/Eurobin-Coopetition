@@ -8,22 +8,9 @@ import signal
 import sys
 import argparse
 import os
-import sys
 import rospy
 import speech_recognition as sr
 from std_msgs.msg import String
-
-# Filtra gli argomenti non riconosciuti
-filtered_args = [arg for arg in sys.argv if not arg.startswith('__')]
-
-parser = argparse.ArgumentParser(description="Speech to Text ROS Node")
-parser.add_argument('--language', type=str, default='italian', help='Language for speech recognition (default: italian)')
-parser.add_argument('--model_name', type=str, default='tiny.en', help='Model name for speech recognition (default: google) Note: google uses the google online speech recognition API')
-parser.add_argument('--mic_index', type=int, default=0, help='Microphone index (default: 0)')
-parser.add_argument('--threshold', type=int, default=500, help='Energy threshold for speech recognition (default: 2000)')
-parser.add_argument('--dynamic_threshold', type=bool, default=False, help='Dynamic energy threshold for speech recognition (default: False)')
-parser.add_argument('--robot_name', type=str, default=os.getenv('ROBOT_NAME', 'robot_alterego3'), help='Robot name for topic naming (default: robot_alterego3)')
-args = parser.parse_args(filtered_args[1:])
 
 class SpeechToText:
     """ Class to recognize speech from the microphone and publish it to a topic """
@@ -105,5 +92,17 @@ class SpeechToText:
                     self.pub.publish(text)
 
 if __name__ == "__main__":
+    # Filter arguments that are not meant for the parser
+    filtered_args = [arg for arg in sys.argv if not arg.startswith('__')]
+
+    parser = argparse.ArgumentParser(description="Speech to Text ROS Node")
+    parser.add_argument('--language', type=str, default='italian', help='Language for speech recognition (default: italian)')
+    parser.add_argument('--model_name', type=str, default='tiny.en', help='Model name for speech recognition (default: google) Note: google uses the google online speech recognition API')
+    parser.add_argument('--mic_index', type=int, default=0, help='Microphone index (default: 0)')
+    parser.add_argument('--threshold', type=int, default=500, help='Energy threshold for speech recognition (default: 2000)')
+    parser.add_argument('--dynamic_threshold', type=bool, default=False, help='Dynamic energy threshold for speech recognition (default: False)')
+    parser.add_argument('--robot_name', type=str, default=os.getenv('ROBOT_NAME', 'robot_alterego3'), help='Robot name for topic naming (default: robot_alterego3)')
+    args = parser.parse_args(filtered_args[1:])
+
     stt = SpeechToText(language=args.language, model_name=args.model_name, mic_index=args.mic_index, threshold=args.threshold, dynamic_threshold=args.dynamic_threshold, robot_name=args.robot_name)
     stt.recognize_speech()
