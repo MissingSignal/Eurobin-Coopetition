@@ -18,8 +18,8 @@ import edge_tts
 from std_msgs.msg import String, Float64, Bool
 
 
-#OUTPUT_FILE = "/home/alterego-vision/AlterEGO_v2/catkin_ws/src/raise/temp/speech.mp3" 
-OUTPUT_FILE = "/home/luca-garello/Downloads/test.mp3"
+OUTPUT_FILE = "/home/alterego-vision/AlterEGO_v2/catkin_ws/src/raise/temp/speech.mp3" 
+# OUTPUT_FILE = "/home/luca-garello/Downloads/test.mp3"
 DOWNLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models")
 
 HAPPY = 2
@@ -69,7 +69,7 @@ class EmbodiedTextToSpeech:
                 raise ValueError("Invalid language")
         elif self.model_type == "local":
             if language == "english":
-                self.voice = "en_US-lessac-low" # BEST 'en_US-lessac-low' 
+                self.voice = "en_US-ryan-low" # BEST 'en_US-lessac-low' 
             elif language == "italian":
                 self.voice = "it_IT-riccardo-x_low"
             else:
@@ -170,7 +170,7 @@ class EmbodiedTextToSpeech:
         """
         # play the audio file
         try:
-            subprocess.run(['mpv', file_path, '--really-quiet'])
+            subprocess.run(['mpv', file_path, '--really-quiet', f'--speed=0.9'])
         except Exception as e:
             print(f"Error while playing the file: {e}")
 

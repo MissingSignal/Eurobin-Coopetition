@@ -86,7 +86,7 @@ class SpeechToText:
                     text = self.recognizer.recognize_whisper(audio, model=self.model_name, language=self.language)
 
                 time_end = time.time()
-                if text is not None:
+                if text is not None and text != "":
                     print(f"Recognized: {text}")
                     print(f"\033[3mInference time: {time_end - time_start} seconds\033[0m")
                     self.pub.publish(text)
