@@ -1,0 +1,7 @@
+<launch>
+
+    <!-- Launch the agent node -->
+    <node name="agent" pkg="eurobin_coopetition" type="agent.py" output="screen"/>
+
+
+</launch>

@@ -1,0 +1,8 @@
+<launch>
+
+
+    <!-- Launch the text2speech node -->
+    <node name="text2speech" pkg="eurobin_coopetition" type="text2speech.py" output="screen"/>
+
+
+</launch>

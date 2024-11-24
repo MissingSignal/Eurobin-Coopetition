@@ -14,6 +14,7 @@ add_service_files(
   HappyPoseService.srv
   NavService.srv
   EnableAutoModeService.srv
+  WaitPilotService.srv
   WhereRUService.srv
 )
 
@@ -34,5 +35,6 @@ include_directories(
 catkin_install_python(PROGRAMS
   modules/speech2text/speech2text.py
   modules/agent/agent.py
+  modules/text2speech/text2speech.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

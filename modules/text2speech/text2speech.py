@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Simple text to speech module with mouth movement synchronization. 
 Written by: Luca Garello (luca.garello@iit.it)
@@ -223,7 +222,7 @@ if __name__ == "__main__":
     filtered_args = [arg for arg in sys.argv if not arg.startswith('__')]
 
     parser = argparse.ArgumentParser(description="Speech to Text ROS Node")
-    parser.add_argument('--model', type=str, default='local',
+    parser.add_argument('--model', type=str, default='web',
                     help='model for text2speech, either "web" (edge web API) or "local" (local pyttsx3) (defaul: web)')
     parser.add_argument('--language', type=str, default='english',
                     help='Language for speech recognition, either "english" or "italian" (default: italian)')

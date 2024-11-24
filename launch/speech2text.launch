@@ -2,7 +2,6 @@
     <!-- Launch the speech2text node -->
     <node name="speech2text" pkg="eurobin_coopetition" type="speech2text.py" output="screen"/>
 
-    <!-- Launch the agent node -->
-    <node name="agent" pkg="eurobin_coopetition" type="agent.py" output="screen"/>
+
 
 </launch>
