@@ -14,6 +14,11 @@ from eurobin_coopetition.srv import EnableAutoModeService, WhereRUService, Happy
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph, MessagesState
 from std_msgs.msg import Bool
+import cv2
+import matplotlib.pyplot as plt
+from gradio_client import Client, handle_file
+import json
+import datetime
 
 dotenv.load_dotenv()
 
@@ -25,16 +30,20 @@ AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
 
 # Hard coded list of available objects
 objects = [
-    "cleanser", "sponge", "bowl", "plate", "mug", "fork", "knife", "spoon", "chocolate_jello", "strawberry_jello",
-    "coffee_grounds", "mustard", "spam", "sugar", "tomato_soup", "tuna", "bowl", "plate", "mug", "fork", "knife",
-    "spoon", "cleanser", "sponge", "apple", "banana", "lemon", "orange", "peach", "pear", "plum", "strawberry",
-    "cheezit", "cornflakes", "pringles", "baseball", "dice", "rubiks_cube", "soccer_ball", "tennis_ball"
+    "glass_cleanser", "bleach_cleanser", "hygiene_spray", "toothpaste", "bowl", "plate", "mug",
+    "cracker_box", "sugar", "chocholate_jello", "strawberry_jello", "spam", "coffee", "pringles",
+    "mustard", "tomato_soup", "blue_salt", "yellow_salt", "green_salt", "mashed_potatoes", "rusk",
+    "amicelli", "raviolli", "powdered_sugar", "nutella_go", "cereals", "chocolate_bars",
+    "banana", "strawberry", "apple", "lemon", "peach", "pear", "orange", "plum",
+    "soccer_ball", "soft_ball", "baseball", "tennis_ball", "racquetball", "rubiks_cube",
+    "white_cloth", "red_sponge", "blue_bowl", "white_plate", "red_cube", "blue sphere", # <-- THIS LINE IS FOR UNKNOW OBJECTS
 ]
 
 # Main interaction with the robot via ROS topic
 class RobotAgent:
     def __init__(self):
-
+        
+        self.never_listen_again = False
         tools = [self.execute_plan]
         self.action_node = ToolNode(tools)
         self.llm_model = AzureChatOpenAI(
@@ -90,14 +99,14 @@ class RobotAgent:
         self.robot_speaking = msg.data
 
     def callback(self, msg):
-        if not self.robot_speaking:        
+        if not self.robot_speaking and not self.never_listen_again:       
             user_input = msg.data
             rospy.loginfo(f"Received input: {user_input}")
             
             # Process the input using the state graph
             current_state = self.robot.invoke(
                 {"messages": [
-                    SystemMessage(f"Given a prompt in the format: Pick Object 'O' at Location 'L_origin' in Kitchen 'K_origin' and place it on 'K_target' 'L_target'. Where O={{{', '.join(objects)}}}, L_target={{Dishwasher, Table, Cabinet}}, L_origin={{Dishwasher, Table, Drawer, Counter, Cabinet, person}}, K_target={{DLR, KIT, INRIA}}, and K_origin={{DLR, KIT, INRIA}}. If you are not sure about one component, ask for confirmation. Never list to the user all the objects that can be grasped."),
+                    SystemMessage(f"Given a prompt in the format: Pick Object 'O' at Location 'L_origin' in Kitchen 'K_origin' and place it on 'K_target' 'L_target'. Where O={{{', '.join(objects)}}}, L_target={{Dishwasher, Counter, Drawer, Table, Cabinet, Person}}, L_origin={{Dishwasher, Table, Drawer, Counter, Cabinet}}, K_target={{DLR, KIT, INRIA}}, and K_origin={{DLR, KIT, INRIA}}. If you are not sure about one component, ask for confirmation. Never list to the user all the objects that can be grasped."),
                     HumanMessage(content=user_input)
                 ]},
                 config={"configurable": {"thread_id": 42}},
@@ -122,45 +131,61 @@ class RobotAgent:
             rospy.logerr(f"Service call to {service_name} failed: {e}")
             return None
 
+    def open_vocabulary_detection(self, unknown_obj):
+        #replace underscores with spaces in the unknown object, e.g "blue_sphere" -> "blue sphere"
+        unknown_obj = unknown_obj.replace("_", " ")
+        input_img_path = os.getenv('HAPPYPOSE_DATAFILES', '/home/alterego-vision/HappyPoseFiles/') + '/image_rgb.png'
+        image = cv2.imread(input_img_path)
 
+        client = Client("gokaygokay/Florence-2")
+        result = client.predict(
+            image=handle_file(input_img_path),
+            task_prompt="Open Vocabulary Detection",
+            text_input=unknown_obj,
+            model_id="microsoft/Florence-2-large",
+            api_name="/process_image"
+        )
+
+        # imshow with bounding boxes from results
+        data_dict = json.loads(result[0].replace("'", "\""))
+
+        bboxes = data_dict["<OPEN_VOCABULARY_DETECTION>"]["bboxes"]
+
+        if len(bboxes) > 0:
+        # draw bounding boxes
+            for bbox in bboxes:
+                # convert bbox to int
+                bbox = [int(b) for b in bbox]
+                x1, y1, x2, y2 = bbox
+                cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                # add label to the bounding box
+                cv2.putText(image, unknown_obj, (x1, y1), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36, 255, 12), 2)
+
+            #write image with bounding boxes
+            now = datetime.datetime.now()
+            timestamp = now.strftime("%H_%M_%S")
+            output_image = "/home/alterego-vision/HappyPoseFiles/visualizations" + f'/output-{timestamp}.png'
+            cv2.imwrite(output_image, image)
+            rospy.loginfo(f"FLORENCE saved image with bounding boxes at {output_image}")
+        else:
+            rospy.loginfo("FLORENCE did not detect any object")
             
-    # Define the tools for the agent to use
-    @tool
-    def execute_plan(self, object_: str, origin_location: str, origin_sublocation: str, target_location: str, target_sublocation: str) -> bool:
-        """call this tool when the plan is ready to be executed
-        Args:
-            object (str): object to pick referred as O
-            origin_location (str): location to go (INRIA, KIT or DLR) referred K_origin
-            origin_sublocation (str): sublocation to pick object from (Dishwasher, Table or Cabinet) referred as L_origin 
-            target_location (str): location to place object (INRIA, KIT or DLR) referred as K_target
-            target_sublocation (str): sublocation to place object (Dishwasher, Table or Cabinet, person) referred as L_target
-        """
-        print("\n")
-        click.secho("[ACTION:] THE PLAN IS SET", fg='green', bold=True)
-        click.secho("Moving", nl=False)
-        click.secho(f" {object_} ", fg='yellow', bold=True, nl=False)
-        click.secho("from", nl=False)
-        click.secho(f" {origin_location} ", fg='blue', bold=True, nl=False)
-        click.secho(f" {origin_sublocation} ", fg='red', bold=True, nl=False)
-        click.secho(f"to", nl=False)
-        click.secho(f" {target_location} ", fg='blue', bold=True, nl=False)
-        click.secho(f" {target_sublocation} ", fg='red', bold=True)
-        print("\n")
-
+    def start_competition(self, object_: str, origin_location: str, origin_sublocation: str, target_location: str, target_sublocation: str) -> bool:
         text2pub = (f"Moving {object_} from {origin_location} {origin_sublocation} to {target_location} {target_sublocation}")
+        self.text_pub.publish(text2pub)
+
+        #stop listening to the user
+        self.never_listen_again = True
         
         # # #--------------------------------------------------------------------------------------------------------ENABLE AUTO MODE
         rospy.loginfo("Enabling the auto mode")
         response = self.call_service('/enable_auto_mode_service', EnableAutoModeService, enable=True)
-        if not response:
-            return False
 
         
         # # #--------------------------------------------------------------------------------------------------------GET THE STARTING POINT
         rospy.loginfo("Requesting the starting point")
+        #self.text_pub.publish("Hello refree, I'm ready to start the competition. Tell me the plan")
         response = self.call_service('/where_are_you_service', WhereRUService, request=True)
-        if not response:
-            return False
         instruction_point = response.instruction_point
         rospy.loginfo("Starting from the location: " + instruction_point)
 
@@ -169,20 +194,14 @@ class RobotAgent:
             rospy.loginfo("Already in the origin location")
             rospy.loginfo("Requesting navigation to go to origin sub location")
             response = self.call_service('/navigation_service', NavService, location=origin_location, sub_location=origin_sublocation)
-            if not response:
-                return False
         else:
             if instruction_point == "KIT" or instruction_point == "DLR":
                 if origin_location == "INRIA" :
                     rospy.loginfo("Requesting navigation to go to the door KIT-INRIA")
                     response = self.call_service('/navigation_service', NavService, location="Door", sub_location="KIT-INRIA")
-                    if not response:
-                        return False
                     # # #--------------------------------------------------------------------------------------------------------DISABLE AUTO MODE
                     rospy.loginfo("Disabling the auto mode")
                     response = self.call_service('/enable_auto_mode_service', EnableAutoModeService, enable=False)
-                    if not response:
-                        return False
                     # # #--------------------------------------------------------------------------------------------------------SEND AUDIO REQUEST
                     rospy.loginfo("Sending audio request")
                     self.text_pub.publish("Now the pilot will help me to open the door")
@@ -197,9 +216,8 @@ class RobotAgent:
                             break
                         rospy.sleep(0.1)
                     # # #--------------------------------------------------------------------------------------------------------CONTINUE NAVIGATION TO THE ORIGIN LOCATION
+                    rospy.loginfo("Requesting navigation to go to " + origin_location + " " + origin_sublocation) 
                     response = self.call_service('/navigation_service', NavService, location=origin_location, sub_location=origin_sublocation)
-                    if not response:
-                        return False
 
                     
             elif instruction_point == "INRIA":
@@ -207,13 +225,9 @@ class RobotAgent:
                     rospy.loginfo("C'è la porta sud")
                     rospy.loginfo("Requesting navigation to go to the door KIT-INRIA")
                     response = self.call_service('/navigation_service', NavService, location="Door", sub_location="INRIA-KIT")
-                    if not response:
-                        return False
                     # # #--------------------------------------------------------------------------------------------------------DISABLE AUTO MODE
                     rospy.loginfo("Disabling the auto mode")
                     response = self.call_service('/enable_auto_mode_service', EnableAutoModeService, enable=False)
-                    if not response:
-                        return False
                     # # #--------------------------------------------------------------------------------------------------------SEND AUDIO REQUEST
                     rospy.loginfo("Sending audio request")
                     self.text_pub.publish("Now the pilot will help me to open the door")                    
@@ -227,31 +241,26 @@ class RobotAgent:
                             break
                         rospy.sleep(0.1)
                     # # #--------------------------------------------------------------------------------------------------------CONTINUE NAVIGATION TO THE ORIGIN LOCATION
+                    rospy.loginfo("Requesting navigation to go to " + origin_location + " " + origin_sublocation) 
                     response = self.call_service('/navigation_service', NavService, location=origin_location, sub_location=origin_sublocation)
-                    if not response:
-                        return False
 
 
             elif instruction_point == "DLR":
                 if origin_location == "KIT":
                     rospy.loginfo("Requesting navigation to go to origin sub location")
                     response = self.call_service('/navigation_service', NavService, location=origin_location, sub_location=origin_sublocation)
-                    if not response:
-                        return False
             elif instruction_point == "KIT":
                 if origin_location == "DLR":
                     rospy.loginfo("Requesting navigation to go to origin sub location")
                     response = self.call_service('/navigation_service', NavService, location=origin_location, sub_location=origin_sublocation)
-                    if not response:
-                        return False
 
         #--------------------------------------------------------------------------------------------------------WAIT THE PILOT 
         rospy.loginfo("waiting the pilot to enter and move the head")
-            # # #--------------------------------------------------------------------------------------------------------SEND AUDIO REQUEST
+        # # #--------------------------------------------------------------------------------------------------------SEND AUDIO REQUEST
         rospy.loginfo("Sending audio request")
         self.text_pub.publish("Now the pilot will help me to move the head")
         
-            # # #--------------------------------------------------------------------------------------------------------WAIT THE PILOT TO MOVE THE HEAD
+        # # #--------------------------------------------------------------------------------------------------------WAIT THE PILOT TO MOVE THE HEAD
         rospy.loginfo("Requesting help from the pilot")
         response = self.call_service('/wait_help_from_pilot_service', WaitPilotService, request=True)
         
@@ -263,23 +272,25 @@ class RobotAgent:
 
         #--------------------------------------------------------------------------------------------------------DETECT OBJECT
         rospy.loginfo("Requesting happypose to find the object")
-        response = self.call_service('/happypose_service', HappyPoseService, object=object)
-        if not response:
-            return False
+        self.text_pub.publish("I'm looking for the object, let me see")
+        response = self.call_service('/happypose_service', HappyPoseService, object=object_)
+        #in paraller we run florence-2 to detect the object
+        self.open_vocabulary_detection(object_)
+        self.text_pub.publish("I found the object")
 
         position = response.position
         orientation = response.orientation
-        rospy.loginfo(f"Object {object} found at position ({position.x}, {position.y}, {position.z}) and orientation ({orientation.x}, {orientation.y}, {orientation.z}, {orientation.w})")
+        rospy.loginfo(f"Object {object_} found at position ({position.x}, {position.y}, {position.z}) and orientation ({orientation.x}, {orientation.y}, {orientation.z}, {orientation.w})")
         rospy.sleep(4)
         rospy.loginfo("Pick the object")
 
         #--------------------------------------------------------------------------------------------------------WAIT THE PILOT TO PICK THE OBJECT
         rospy.loginfo("waiting the pilot to enter and pick the object")
-            # # #--------------------------------------------------------------------------------------------------------SEND AUDIO REQUEST
+        # # #--------------------------------------------------------------------------------------------------------SEND AUDIO REQUEST
         rospy.loginfo("Sending audio request")
         self.text_pub.publish("Now the pilot will help me to pick the object")
         
-            # # #--------------------------------------------------------------------------------------------------------WAIT THE PILOT TO PICK THE OBJECT
+        # # #--------------------------------------------------------------------------------------------------------WAIT THE PILOT TO PICK THE OBJECT
         rospy.loginfo("Requesting help from the pilot")
         response = self.call_service('/wait_help_from_pilot_service', WaitPilotService, request=True)
         
@@ -291,19 +302,56 @@ class RobotAgent:
         #--------------------------------------------------------------------------------------------------------GO TO THE TARGET LOCATION
         rospy.loginfo("Requesting navigation to go to target location")
         response = self.call_service('/navigation_service', NavService, location=target_location, sub_location=target_sublocation)
-        if not response:
-            return False
 
         rospy.loginfo("Moving to place the object")
 
-        #--------------------------------------------------------------------------------------------------------WAIT THE PILOT TO PLACE THE OBJECT
-        rospy.loginfo("waiting the pilot to enter and place the object")
-        # # #--------------------------------------------------------------------------------------------------------SEND AUDIO REQUEST
-        rospy.loginfo("Sending audio request")
-        self.text_pub.publish("And finally the pilot will help me to place the object")
+        #--------------------------------------------------------------------------------------------------------WAIT THE PILOT TO PLACE/GIVE THE OBJECT
+        if target_sublocation == "Person":
+            self.text_pub.publish("Hey my friend, I have something you")
+            rospy.loginfo("waiting the pilot to enter and give the object")
+        else: 
         
-        return True
+            rospy.loginfo("waiting the pilot to enter and place the object")
+            rospy.loginfo("Sending audio request")
+            self.text_pub.publish("And finally the pilot will help me to place the object")
 
+        while True:
+            response = self.call_service('/wait_help_from_pilot_service', WaitPilotService, request=False)
+            if response:
+                break
+            rospy.sleep(0.1)
+
+        while True:
+            self.text_pub.publish("I did my best, I hope you are happy")
+            rospy.loginfo("COOPETITION FINISHED - IF YOU SEE THIS MESSAGE, IT'S TIME TO CELEBRATE!")
+            rospy.sleep(1)
+
+    
+        return True 
+
+    @tool
+    def execute_plan(object_: str, origin_location: str, origin_sublocation: str, target_location: str, target_sublocation: str) -> bool:
+        """call this tool when the plan is ready to be executed
+        Args:
+            object (str): object to pick referred as O
+            origin_location (str): location to go (INRIA, KIT or DLR) referred K_origin
+            origin_sublocation (str): sublocation to pick object from (Dishwasher, Table, Drawer, Counter or Cabinet) referred as L_origin 
+            target_location (str): location to place object (INRIA, KIT or DLR) referred as K_target
+            target_sublocation (str): sublocation to place object (Dishwasher, Table, Drawer, Counter, Cabinet or Person) referred as L_target
+        """
+        print("\n")
+        click.secho("[ACTION:] THE PLAN IS SET", fg='green', bold=True)
+        click.secho("Moving", nl=False)
+        click.secho(f" {object_} ", fg='yellow', bold=True, nl=False)
+        click.secho("from", nl=False)
+        click.secho(f" {origin_location} ", fg='blue', bold=True, nl=False)
+        click.secho(f" {origin_sublocation} ", fg='red', bold=True, nl=False)
+        click.secho(f"to", nl=False)
+        click.secho(f" {target_location} ", fg='blue', bold=True, nl=False)
+        click.secho(f" {target_sublocation} ", fg='red', bold=True)
+        print("\n")
+
+        return True
 
 
     def should_continue(self, state: MessagesState) -> Literal["action", END]:
@@ -311,8 +359,12 @@ class RobotAgent:
         messages = state['messages']
         last_message = messages[-1]
 
+
         # If the LLM makes a tool call, then we route to the "tools" node
         if last_message.tool_calls:
+            args = last_message.tool_calls[0]["args"]
+            print(args)
+            self.start_competition(args["object_"], args["origin_location"], args["origin_sublocation"], args["target_location"], args["target_sublocation"])
             return "action"
         # Otherwise, we stop (reply to the user)
         return END
@@ -322,7 +374,7 @@ class RobotAgent:
         messages = state['messages']
         response = self.llm_model.invoke(messages)
 
-        print(response)
+        # print(response)
         # We return a list, because this will get added to the existing list
         return {"messages": [response]}
     
@@ -335,14 +387,14 @@ if __name__ == "__main__":
         chat_with_robot = RobotAgent()
         ########
         # DEBUG
-        print("DEBUG")
-        current_state = chat_with_robot.robot.invoke(
-            {"messages": [
-                SystemMessage(f"Given a prompt in the format: Pick Object 'O' at Location 'L_origin' in Kitchen 'K_origin' and place it on 'K_target' 'L_target'. Where O={{{', '.join(objects)}}}, L_target={{Dishwasher, Table, Cabinet}}, L_origin={{Dishwasher, Table, Drawer, Counter, Cabinet, person}}, K_target={{DLR, KIT, INRIA}}, and K_origin={{DLR, KIT, INRIA}}. If you are not sure about one component, ask for confirmation. Never list to the user all the objects that can be grasped."),
-                HumanMessage(content="take the apple from the table in the INRIA kitchen and place it on the KIT table")
-            ]},
-            config={"configurable": {"thread_id": 42}},
-        )
+        # print("DEBUG")
+        # current_state = chat_with_robot.robot.invoke(
+        #     {"messages": [
+        #         SystemMessage(f"Given a prompt in the format: Pick Object 'O' at Location 'L_origin' in Kitchen 'K_origin' and place it on 'K_target' 'L_target'. Where O={{{', '.join(objects)}}}, L_target={{Dishwasher, Table, Drawer, Counter, Cabinet}}, L_origin={{Dishwasher, Table, Drawer, Counter, Cabinet, Person}}, K_target={{DLR, KIT, INRIA}}, and K_origin={{DLR, KIT, INRIA}}. If you are not sure about one component, ask for confirmation. Never list to the user all the objects that can be grasped."),
+        #         HumanMessage(content="take the apple from the table in the INRIA kitchen and place it on the KIT table")
+        #     ]},
+        #     config={"configurable": {"thread_id": 42}},
+        # )
         ###################
         rospy.spin()
     except rospy.ROSInterruptException:

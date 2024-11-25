@@ -54,7 +54,7 @@ class EmbodiedTextToSpeech:
 
         rospy.loginfo("Text to Speech node initialized")
         #DEBUG ONLY TO DELETE
-        self.speak("Do you want me to pick the apple from the Table in the KIT kitchen? I can do it for you")
+        #self.speak("Do you want me to pick the apple from the Table in the KIT kitchen? I can do it for you")
         rospy.spin()
 
     def set_language(self, language):
