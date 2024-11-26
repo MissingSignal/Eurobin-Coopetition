@@ -14,6 +14,7 @@ from std_msgs.msg import String
 from io import BytesIO
 
 
+client = openai.OpenAI(api_key="")
 
 class SpeechToText:
     """ Class to recognize speech from the microphone and publish it to a topic """
