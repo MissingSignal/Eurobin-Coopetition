@@ -10,8 +10,7 @@ def open_vocabulary_detection(self, image, unknown_obj):
     #replace underscores with spaces in the unknown object, e.g "blue_sphere" -> "blue sphere"
     unknown_obj = unknown_obj.replace("_", " ")
     input_img_path = os.getenv('HAPPYPOSE_DATAFILES', '/home/alterego-vision/HappyPoseFiles/') + '/image_rgb.png'
-    image = cv2.imread(input_img_path)
-
+    
     client = Client("gokaygokay/Florence-2")
     result = client.predict(
         image=handle_file(input_img_path),
@@ -20,6 +19,7 @@ def open_vocabulary_detection(self, image, unknown_obj):
         model_id="microsoft/Florence-2-large",
         api_name="/process_image"
     )
+    image = cv2.imread(input_img_path)
 
     # imshow with bounding boxes from results
     data_dict = json.loads(result[0].replace("'", "\""))

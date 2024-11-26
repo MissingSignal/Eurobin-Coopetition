@@ -14,7 +14,7 @@ from std_msgs.msg import String
 
 class SpeechToText:
     """ Class to recognize speech from the microphone and publish it to a topic """
-    def __init__(self, language="it-IT", model_name="google", mic_index=0, threshold=500, dynamic_threshold=False, robot_name='robot_alterego3'):
+    def __init__(self, language="english", model_name="google", mic_index=0, threshold=500, dynamic_threshold=False, robot_name='robot_alterego3'):
         assert model_name in ["tiny.en","base.en","small.en","medium.en","tiny","base","small","medium","large","turbo","google"], "Invalid model name"
         self.language = language
         self.model_name = model_name
@@ -96,10 +96,10 @@ if __name__ == "__main__":
     filtered_args = [arg for arg in sys.argv if not arg.startswith('__')]
 
     parser = argparse.ArgumentParser(description="Speech to Text ROS Node")
-    parser.add_argument('--language', type=str, default='italian', help='Language for speech recognition (default: italian)')
-    parser.add_argument('--model_name', type=str, default='small.en', help='Model name for speech recognition (default: google) Note: google uses the google online speech recognition API')
+    parser.add_argument('--language', type=str, default='english', help='Language for speech recognition (default: italian)')
+    parser.add_argument('--model_name', type=str, default='medium.en', help='Model name for speech recognition (default: google) Note: google uses the google online speech recognition API')
     parser.add_argument('--mic_index', type=int, default=0, help='Microphone index (default: 0)')
-    parser.add_argument('--threshold', type=int, default=500, help='Energy threshold for speech recognition (default: 2000)')
+    parser.add_argument('--threshold', type=int, default=2000, help='Energy threshold for speech recognition (default: 2000)')
     parser.add_argument('--dynamic_threshold', type=bool, default=False, help='Dynamic energy threshold for speech recognition (default: False)')
     parser.add_argument('--robot_name', type=str, default=os.getenv('ROBOT_NAME', 'robot_alterego3'), help='Robot name for topic naming (default: robot_alterego3)')
     args = parser.parse_args(filtered_args[1:])

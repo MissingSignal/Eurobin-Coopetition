@@ -36,13 +36,13 @@ objects = [
     "amicelli", "raviolli", "powdered_sugar", "nutella_go", "cereals", "chocolate_bars",
     "banana", "strawberry", "apple", "lemon", "peach", "pear", "orange", "plum",
     "soccer_ball", "soft_ball", "baseball", "tennis_ball", "racquetball", "rubiks_cube",
-    "white_cloth", "red_sponge", "blue_bowl", "white_plate", "red_cube", "blue sphere", # <-- THIS LINE IS FOR UNKNOW OBJECTS
+    "blue_bowl", "blu_bowl", "pink_mug", "red_mug", "glass", "blue_cup", "pink_cup", "green_cup", "purple_cup", "yellow_cup", "grey_plate", "grey_cube", "red_ball", "gray_ball" # <-- THIS LINE IS FOR UNKNOW OBJECTS
 ]
 
 # Main interaction with the robot via ROS topic
 class RobotAgent:
     def __init__(self):
-        
+        self.force_exit = False
         self.never_listen_again = False
         tools = [self.execute_plan]
         self.action_node = ToolNode(tools)
@@ -91,12 +91,19 @@ class RobotAgent:
         rospy.Subscriber(f"/{self.robot_name}/recognized_speech", String, self.callback)
         # Subscriber for the robot speaking status
         rospy.Subscriber(f"/{self.robot_name}/is_robot_speaking", Bool, self.callback_speak)
+        rospy.Subscriber(f"/{self.robot_name}/force_exit", Bool, self.callback_force_exit)
+
+        
         self.text_pub = rospy.Publisher(f"/{self.robot_name}/text2speech", String, queue_size=10)
 
         self.robot_speaking = None
 
     def callback_speak(self, msg):
         self.robot_speaking = msg.data
+
+    def callback_force_exit(self, msg):
+        self.force_exit = msg.data
+        print(f"Force exit: {self.force_exit}")
 
     def callback(self, msg):
         if not self.robot_speaking and not self.never_listen_again:       
@@ -106,15 +113,16 @@ class RobotAgent:
             # Process the input using the state graph
             current_state = self.robot.invoke(
                 {"messages": [
-                    SystemMessage(f"Given a prompt in the format: Pick Object 'O' at Location 'L_origin' in Kitchen 'K_origin' and place it on 'K_target' 'L_target'. Where O={{{', '.join(objects)}}}, L_target={{Dishwasher, Counter, Drawer, Table, Cabinet, Person}}, L_origin={{Dishwasher, Table, Drawer, Counter, Cabinet}}, K_target={{DLR, KIT, INRIA}}, and K_origin={{DLR, KIT, INRIA}}. If you are not sure about one component, ask for confirmation. Never list to the user all the objects that can be grasped."),
-                    HumanMessage(content=user_input)
+                    SystemMessage(f"Given a prompt in the format: Pick Object 'O' at Location 'L_origin' in Kitchen 'K_origin' and place it on 'K_target' 'L_target'. Where O={{{', '.join(objects)}}}, L_target={{Dishwasher, Counter, Drawer, Table, Cabinet, Person}}, L_origin={{Dishwasher, Table, Drawer, Counter, Cabinet}}, K_target={{DLR, KIT, INRIA}}, and K_origin={{DLR, KIT, INRIA}}. \
+                                 If the user ask to pick/place objects from/to Table always assume Location=INRIA, Sublocation=Table. The Table is always in the INRIA kitchen. The places might be mispelled by the user, use your common-sense to infer the right word. Never list to the user all the objects that can be grasped."),                    HumanMessage(content=user_input)
                 ]},
                 config={"configurable": {"thread_id": 42}},
             )
 
             response = current_state["messages"][-1].content
             rospy.loginfo(f"Robot: {response}")
-            self.text_pub.publish(self.clean_answer_from_markdown(response))
+            #self.text_pub.publish(self.clean_answer_from_markdown(response))
+            self.text_pub.publish("I'm ready to start, tell me the plan")
         
     def call_service(self, service_name, service_type, **kwargs):
         rospy.wait_for_service(service_name)
@@ -164,9 +172,9 @@ class RobotAgent:
             #write image with bounding boxes
             now = datetime.datetime.now()
             timestamp = now.strftime("%H_%M_%S")
-            output_image = "/home/alterego-vision/HappyPoseFiles/visualizations" + f'/output-{timestamp}.png'
-            cv2.imwrite(output_image, image)
-            rospy.loginfo(f"FLORENCE saved image with bounding boxes at {output_image}")
+            output_image_path = "/home/alterego-vision/HappyPoseFiles/visualizations" + f'/output-{timestamp}.png'
+            cv2.imwrite(output_image_path, image)
+            rospy.loginfo(f"FLORENCE saved image with bounding boxes at {output_image_path}")
         else:
             rospy.loginfo("FLORENCE did not detect any object")
             
@@ -193,7 +201,10 @@ class RobotAgent:
         if instruction_point == origin_location:
             rospy.loginfo("Already in the origin location")
             rospy.loginfo("Requesting navigation to go to origin sub location")
-            response = self.call_service('/navigation_service', NavService, location=origin_location, sub_location=origin_sublocation)
+            if not self.force_exit:
+                response = self.call_service('/navigation_service', NavService, location=origin_location, sub_location=origin_sublocation)
+            else:
+                rospy.loginfo("Force exit is True, bypassing the service call.")
         else:
             if instruction_point == "KIT" or instruction_point == "DLR":
                 if origin_location == "INRIA" :
@@ -273,15 +284,20 @@ class RobotAgent:
         #--------------------------------------------------------------------------------------------------------DETECT OBJECT
         rospy.loginfo("Requesting happypose to find the object")
         self.text_pub.publish("I'm looking for the object, let me see")
+
         response = self.call_service('/happypose_service', HappyPoseService, object=object_)
+        rospy.sleep(1)
         #in paraller we run florence-2 to detect the object
         self.open_vocabulary_detection(object_)
-        self.text_pub.publish("I found the object")
 
-        position = response.position
-        orientation = response.orientation
-        rospy.loginfo(f"Object {object_} found at position ({position.x}, {position.y}, {position.z}) and orientation ({orientation.x}, {orientation.y}, {orientation.z}, {orientation.w})")
+        self.text_pub.publish("I found the object")
+        if response is not None:
+            position = response.position
+            orientation = response.orientation
+            rospy.loginfo(f"Object {object_} found at position ({position.x}, {position.y}, {position.z}) and orientation ({orientation.x}, {orientation.y}, {orientation.z}, {orientation.w})")
+        
         rospy.sleep(4)
+
         rospy.loginfo("Pick the object")
 
         #--------------------------------------------------------------------------------------------------------WAIT THE PILOT TO PICK THE OBJECT
