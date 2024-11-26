@@ -10,7 +10,7 @@ from utils.utils import *
 import os
 
 class CommandGenerator:
-
+    
     def __init__(self, league_names, league, location_names, placement_location_names, room_names, object_names,
                  object_categories_plural, object_categories_singular):
         

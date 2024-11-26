@@ -138,6 +138,42 @@ class RobotAgent:
         except rospy.ServiceException as e:
             rospy.logerr(f"Service call to {service_name} failed: {e}")
             return None
+                
+    def override_cmd_for_table_presence(self, object_, instruction_point, origin_location, origin_sublocation, target_location, target_sublocation):
+        # Check origin location and sublocation
+        if instruction_point == "INRIA" and origin_sublocation == "Table":
+            origin_location = "INRIA"
+            origin_sublocation = "Table"
+            text2pub = (f"Moving {object_} from the {origin_sublocation} to {target_location} {target_sublocation}")
+            rospy.loginfo(text2pub)
+            self.text_pub.publish(text2pub)
+
+        elif instruction_point in ["KIT", "DLR"]:
+            if origin_sublocation == "Table":
+                origin_location = instruction_point
+                origin_sublocation = "Table"
+                text2pub = (f"Moving {object_} from the {origin_sublocation} to {target_location} {target_sublocation}")
+                rospy.loginfo(text2pub)
+                self.text_pub.publish(text2pub)
+
+        # Check target location and sublocation
+        if origin_location == "INRIA" and target_sublocation == "Table":
+            target_location = "INRIA"
+            target_sublocation = "Table"
+            text2pub = (f"Moving {object_} from {origin_location} {origin_sublocation} to the {target_sublocation}")
+            self.text_pub.publish(text2pub)
+            rospy.loginfo(text2pub)
+
+        elif origin_location in ["KIT", "DLR"]:
+            if target_sublocation == "Table":
+                target_location = origin_location
+                target_sublocation = "Table"
+                text2pub = (f"Moving {object_} from {origin_location} {origin_sublocation} to the {target_sublocation}")
+                self.text_pub.publish(text2pub)
+                rospy.loginfo(text2pub)
+
+
+        return origin_location, origin_sublocation, target_location, target_sublocation
 
     def open_vocabulary_detection(self, unknown_obj):
         #replace underscores with spaces in the unknown object, e.g "blue_sphere" -> "blue sphere"
@@ -179,8 +215,7 @@ class RobotAgent:
             rospy.loginfo("FLORENCE did not detect any object")
             
     def start_competition(self, object_: str, origin_location: str, origin_sublocation: str, target_location: str, target_sublocation: str) -> bool:
-        text2pub = (f"Moving {object_} from {origin_location} {origin_sublocation} to {target_location} {target_sublocation}")
-        self.text_pub.publish(text2pub)
+
 
         #stop listening to the user
         self.never_listen_again = True
@@ -197,6 +232,18 @@ class RobotAgent:
         instruction_point = response.instruction_point
         rospy.loginfo("Starting from the location: " + instruction_point)
 
+        # # #--------------------------------------------------------------------------------------------------------OVERRIDE THE RECIVIED COMMAND 
+        # Capisce se c'è un tavolo nel percorso e ripete ad alta voce il comando senza la location del tavolo
+        origin_location, origin_sublocation, target_location, target_sublocation =  self.override_cmd_for_table_presence(object_, instruction_point, origin_location, origin_sublocation, target_location, target_sublocation)
+
+
+        # Se non c'è il tavolo pronuncia bene tutto il comando
+        if origin_sublocation != "Table" and target_sublocation != "Table": 
+            text2pub = (f"Moving {object_} from {origin_location} {origin_sublocation} to {target_location} {target_sublocation}")
+            self.text_pub.publish(text2pub)
+
+        rospy.loginfo(f"I'm in {instruction_point} and i'm going to move the {object_} from {origin_location} {origin_sublocation} to {target_location} {target_sublocation}")
+        
         # # #--------------------------------------------------------------------------------------------------------GO TO ORIGIN LOCATION
         if instruction_point == origin_location:
             rospy.loginfo("Already in the origin location")
@@ -229,8 +276,6 @@ class RobotAgent:
                     # # #--------------------------------------------------------------------------------------------------------CONTINUE NAVIGATION TO THE ORIGIN LOCATION
                     rospy.loginfo("Requesting navigation to go to " + origin_location + " " + origin_sublocation) 
                     response = self.call_service('/navigation_service', NavService, location=origin_location, sub_location=origin_sublocation)
-
-                    
             elif instruction_point == "INRIA":
                 if origin_location == "KIT" or origin_location == "DLR":
                     rospy.loginfo("C'è la porta sud")
@@ -254,13 +299,13 @@ class RobotAgent:
                     # # #--------------------------------------------------------------------------------------------------------CONTINUE NAVIGATION TO THE ORIGIN LOCATION
                     rospy.loginfo("Requesting navigation to go to " + origin_location + " " + origin_sublocation) 
                     response = self.call_service('/navigation_service', NavService, location=origin_location, sub_location=origin_sublocation)
-
-
             elif instruction_point == "DLR":
                 if origin_location == "KIT":
                     rospy.loginfo("Requesting navigation to go to origin sub location")
                     response = self.call_service('/navigation_service', NavService, location=origin_location, sub_location=origin_sublocation)
             elif instruction_point == "KIT":
+                rospy.loginfo("NO")
+                
                 if origin_location == "DLR":
                     rospy.loginfo("Requesting navigation to go to origin sub location")
                     response = self.call_service('/navigation_service', NavService, location=origin_location, sub_location=origin_sublocation)

@@ -12,9 +12,14 @@ import rospy
 import speech_recognition as sr
 from std_msgs.msg import String
 from io import BytesIO
+import dotenv
 
+dotenv.load_dotenv()
 
-client = openai.OpenAI(api_key="")
+# Get environment variables
+OPENAI_WHISPER_KEY = os.getenv("OPENAI_WHISPER_KEY")
+
+client = openai.OpenAI(api_key=OPENAI_WHISPER_KEY)
 
 class SpeechToText:
     """ Class to recognize speech from the microphone and publish it to a topic """
