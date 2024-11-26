@@ -2,7 +2,7 @@
 This module is used to recognize speech from the microphone and publish it to a topic.
 Written by: Luca Garello (luca.garello@iit.it)
 """
-
+import openai
 import time
 import signal
 import sys
@@ -11,6 +11,9 @@ import os
 import rospy
 import speech_recognition as sr
 from std_msgs.msg import String
+from io import BytesIO
+
+
 
 class SpeechToText:
     """ Class to recognize speech from the microphone and publish it to a topic """
@@ -33,6 +36,7 @@ class SpeechToText:
 
         # Initialize the speech recognizer, this segments audio from the microphone and sends it to the speech recognition service
         self.recognizer = sr.Recognizer()
+        self.recognizer.pause_threshold = 1.5
         self.recognizer.energy_threshold = self.threshold
         self.recognizer.dynamic_energy_threshold = self.dynamic_threshold
         print("Module initialized")
@@ -83,7 +87,11 @@ class SpeechToText:
                     except sr.RequestError as e:
                         print(f"Could not request results from Speech Recognition service; {e}")
                 else:
-                    text = self.recognizer.recognize_whisper(audio, model=self.model_name, language=self.language)
+                    #text = self.recognizer.recognize_whisper(audio, model=self.model_name, language=self.language)
+                    wav_data = BytesIO(audio.get_wav_data())
+                    wav_data.name = "SpeechRecognition_audio.wav"
+                    transcript = client.audio.transcriptions.create(file=wav_data, model="whisper-1", language="en")
+                    text = transcript.text
 
                 time_end = time.time()
                 if text is not None and text != "":

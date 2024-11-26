@@ -114,7 +114,7 @@ class RobotAgent:
             current_state = self.robot.invoke(
                 {"messages": [
                     SystemMessage(f"Given a prompt in the format: Pick Object 'O' at Location 'L_origin' in Kitchen 'K_origin' and place it on 'K_target' 'L_target'. Where O={{{', '.join(objects)}}}, L_target={{Dishwasher, Counter, Drawer, Table, Cabinet, Person}}, L_origin={{Dishwasher, Table, Drawer, Counter, Cabinet}}, K_target={{DLR, KIT, INRIA}}, and K_origin={{DLR, KIT, INRIA}}. \
-                                 If the user ask to pick/place objects from/to Table always assume Location=INRIA, Sublocation=Table. The Table is always in the INRIA kitchen. The places might be mispelled by the user, use your common-sense to infer the right word. Never list to the user all the objects that can be grasped."),                    HumanMessage(content=user_input)
+                                 If the user ask to pick/place objects from/to Table always assume Location=INRIA, Sublocation=Table. The Table is always in the INRIA kitchen. The places might be mispelled by the user, fix in this way: NERIA=INRIA KAT=KIT, K80=KIT) Never list to the user all the objects that can be grasped."),                    HumanMessage(content=user_input)
                 ]},
                 config={"configurable": {"thread_id": 42}},
             )
@@ -315,9 +315,89 @@ class RobotAgent:
             if response:
                 break
             rospy.sleep(0.1)
+        
+        # # #--------------------------------------------------------------------------------------------------------ENABLE AUTO MODE
+        rospy.loginfo("Enabling the auto mode")
+        response = self.call_service('/enable_auto_mode_service', EnableAutoModeService, enable=True)
+
         #--------------------------------------------------------------------------------------------------------GO TO THE TARGET LOCATION
         rospy.loginfo("Requesting navigation to go to target location")
-        response = self.call_service('/navigation_service', NavService, location=target_location, sub_location=target_sublocation)
+
+        if origin_location == target_location:
+            rospy.loginfo("Already in the target location")
+            rospy.loginfo("Requesting navigation to go to target sub location")
+            if not self.force_exit:
+                response = self.call_service('/navigation_service', NavService, location=target_location, sub_location=target_sublocation)
+            else:
+                rospy.loginfo("Force exit is True, bypassing the service call.")
+        else:
+            if origin_location == "KIT" or origin_location == "DLR":
+                if target_location == "INRIA" :
+                    rospy.loginfo("Requesting navigation to go to the door KIT-INRIA")
+                    response = self.call_service('/navigation_service', NavService, location="Door", sub_location="KIT-INRIA")
+                    # # #--------------------------------------------------------------------------------------------------------DISABLE AUTO MODE
+                    rospy.loginfo("Disabling the auto mode")
+                    response = self.call_service('/enable_auto_mode_service', EnableAutoModeService, enable=False)
+                    # # #--------------------------------------------------------------------------------------------------------SEND AUDIO REQUEST
+                    rospy.loginfo("Sending audio request")
+                    self.text_pub.publish("Now the pilot will help me to open the door")
+                    
+                    # # #--------------------------------------------------------------------------------------------------------WAIT THE PILOT IN/OUT
+                    rospy.loginfo("Requesting help from the pilot")
+                    response = self.call_service('/wait_help_from_pilot_service', WaitPilotService, request=True)
+                    
+                    while True:
+                        response = self.call_service('/wait_help_from_pilot_service', WaitPilotService, request=False)
+                        if response:
+                            break
+                        rospy.sleep(0.1)
+                    # # #--------------------------------------------------------------------------------------------------------ENABLE AUTO MODE
+                    rospy.loginfo("Enabling the auto mode")
+                    response = self.call_service('/enable_auto_mode_service', EnableAutoModeService, enable=True)
+
+                    # # #--------------------------------------------------------------------------------------------------------CONTINUE NAVIGATION TO THE ORIGIN LOCATION
+                    rospy.loginfo("Requesting navigation to go to " + target_location + " " + target_sublocation) 
+                    response = self.call_service('/navigation_service', NavService, location=target_location, sub_location=target_sublocation)
+
+                    
+            elif origin_location == "INRIA":
+                if target_location == "KIT" or target_location == "DLR":
+                    rospy.loginfo("C'è la porta sud")
+                    rospy.loginfo("Requesting navigation to go to the door KIT-INRIA")
+                    response = self.call_service('/navigation_service', NavService, location="Door", sub_location="INRIA-KIT")
+                    # # #--------------------------------------------------------------------------------------------------------DISABLE AUTO MODE
+                    rospy.loginfo("Disabling the auto mode")
+                    response = self.call_service('/enable_auto_mode_service', EnableAutoModeService, enable=False)
+                    # # #--------------------------------------------------------------------------------------------------------SEND AUDIO REQUEST
+                    rospy.loginfo("Sending audio request")
+                    self.text_pub.publish("Now the pilot will help me to open the door")                    
+                    # # #--------------------------------------------------------------------------------------------------------WAIT THE PILOT IN/OUT
+                    rospy.loginfo("Requesting help from the pilot")
+                    response = self.call_service('/wait_help_from_pilot_service', WaitPilotService, request=True)
+                    
+                    while True:
+                        response = self.call_service('/wait_help_from_pilot_service', WaitPilotService, request=False)
+                        if response:
+                            break
+                        rospy.sleep(0.1)
+
+                    # # #--------------------------------------------------------------------------------------------------------ENABLE AUTO MODE
+                    rospy.loginfo("Enabling the auto mode")
+                    response = self.call_service('/enable_auto_mode_service', EnableAutoModeService, enable=True)
+
+                    # # #--------------------------------------------------------------------------------------------------------CONTINUE NAVIGATION TO THE ORIGIN LOCATION
+                    rospy.loginfo("Requesting navigation to go to " + target_location + " " + target_sublocation) 
+                    response = self.call_service('/navigation_service', NavService, location=target_location, sub_location=target_sublocation)
+
+
+            elif origin_location == "DLR":
+                if target_location == "KIT":
+                    rospy.loginfo("Requesting navigation to go to target sub location")
+                    response = self.call_service('/navigation_service', NavService, location=target_location, sub_location=target_sublocation)
+            elif origin_location == "KIT":
+                if target_location == "DLR":
+                    rospy.loginfo("Requesting navigation to go to target sub location")
+                    response = self.call_service('/navigation_service', NavService, location=target_location, sub_location=target_sublocation)
 
         rospy.loginfo("Moving to place the object")
 
