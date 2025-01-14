@@ -30,7 +30,7 @@ class EmbodiedTextToSpeech:
     Class for the speech synthesis with mouth movement synchronization
     """
 
-    def __init__(self, model_type="web", language="italian", robot_name='robot_alterego3'):
+    def __init__(self, model_type="web", language="italian", robot_name='robot_alterego5'):
 
         self.model_type = model_type
 
@@ -226,8 +226,8 @@ if __name__ == "__main__":
                     help='model for text2speech, either "web" (edge web API) or "local" (local pyttsx3) (defaul: web)')
     parser.add_argument('--language', type=str, default='english',
                     help='Language for speech recognition, either "english" or "italian" (default: italian)')
-    parser.add_argument('--robot_name', type=str, default=os.getenv('ROBOT_NAME', 'robot_alterego3'),
-                    help='Robot name for topic naming (default: robot_alterego3)')
+    parser.add_argument('--robot_name', type=str, default=os.getenv('ROBOT_NAME', 'robot_alterego5'),
+                    help='Robot name for topic naming (default: robot_alterego5)')
     args = parser.parse_args(filtered_args[1:])
 
     embodied_tts = EmbodiedTextToSpeech(args.model, args.language,  args.robot_name)

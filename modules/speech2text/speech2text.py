@@ -23,7 +23,7 @@ client = openai.OpenAI(api_key=OPENAI_WHISPER_KEY)
 
 class SpeechToText:
     """ Class to recognize speech from the microphone and publish it to a topic """
-    def __init__(self, language="english", model_name="google", mic_index=0, threshold=500, dynamic_threshold=False, robot_name='robot_alterego3'):
+    def __init__(self, language="english", model_name="google", mic_index=0, threshold=500, dynamic_threshold=False, robot_name='robot_alterego5'):
         assert model_name in ["tiny.en","base.en","small.en","medium.en","tiny","base","small","medium","large","turbo","google"], "Invalid model name"
         self.language = language
         self.model_name = model_name
@@ -115,7 +115,7 @@ if __name__ == "__main__":
     parser.add_argument('--mic_index', type=int, default=0, help='Microphone index (default: 0)')
     parser.add_argument('--threshold', type=int, default=2000, help='Energy threshold for speech recognition (default: 2000)')
     parser.add_argument('--dynamic_threshold', type=bool, default=False, help='Dynamic energy threshold for speech recognition (default: False)')
-    parser.add_argument('--robot_name', type=str, default=os.getenv('ROBOT_NAME', 'robot_alterego3'), help='Robot name for topic naming (default: robot_alterego3)')
+    parser.add_argument('--robot_name', type=str, default=os.getenv('ROBOT_NAME', 'robot_alterego5'), help='Robot name for topic naming (default: robot_alterego5)')
     args = parser.parse_args(filtered_args[1:])
 
     stt = SpeechToText(language=args.language, model_name=args.model_name, mic_index=args.mic_index, threshold=args.threshold, dynamic_threshold=args.dynamic_threshold, robot_name=args.robot_name)

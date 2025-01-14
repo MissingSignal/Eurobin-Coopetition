@@ -85,7 +85,7 @@ class RobotAgent:
         # Initialize the ROS node
         rospy.init_node('chat_with_robot', anonymous=False)
         # Get robot name from environment variable
-        self.robot_name = os.getenv('ROBOT_NAME', 'robot_alterego3')
+        self.robot_name = os.getenv('ROBOT_NAME', 'robot_alterego5')
  
         # Subscriber for recognized speech
         rospy.Subscriber(f"/{self.robot_name}/recognized_speech", String, self.callback)

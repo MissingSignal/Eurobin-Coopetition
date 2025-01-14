@@ -237,7 +237,7 @@ def main(test=False, league="wp2", cmds_number=0):
     
     if test:
         rospy.init_node('command_generator')
-        robot_name = os.getenv('ROBOT_NAME', 'robot_alterego3')
+        robot_name = os.getenv('ROBOT_NAME', 'robot_alterego5')
 
         pub = rospy.Publisher(f"/{robot_name}/recognized_speech", String, queue_size=10)
         rate = rospy.Rate(1)  # 1 Hz
